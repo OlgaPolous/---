@@ -1,0 +1,146 @@
+import warnings
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+# Установка настроек отображения и игнорирование предупреждений
+pd.options.display.max_columns = None
+warnings.filterwarnings('ignore')
+# Установка стиля графиков
+sns.set_style("whitegrid")
+# Чтение файла из локальной системы
+file_path = 'ds_salaries.csv'
+df = pd.read_csv(file_path)
+
+df.info() #df.info() предоставляет общую информацию о DataFrame, включая количество строк и столбцов, типы данных и отсутствующие значения.
+
+df.head(10) #df.head(10) выводит первые 10 строк DataFrame.
+df.describe() #df.describe() дает статистические описания числовых столбцов (среднее, стандартное отклонение, минимальное и максимальное значение).
+df.describe(include = "object") #df.describe(include="object") аналогично, но только для объектных столбцов (текстовые данные).
+df[df.work_year >= 2020] #df[df.work_year >= 2020] фильтрует строки, где год работы (work_year) больше или равен 2020 году
+
+# Проверяем есть ли пропуски в строках.
+missing_count = df.isnull().sum()
+print(missing_count)
+import numpy as np
+# Проверка всех столбцов на наличие действительных чисел
+errors_in_columns = df.applymap(np.isreal).all(axis=0)
+print(errors_in_columns)
+# Получение списка столбцов с пропущенными значениями
+columns_with_missing_values = df.columns[df.isnull().any()].tolist()
+print(columns_with_missing_values)
+# Сохраняем количество строк в исходном DataFrame
+initial_row_count = len(df)
+
+# Удаляем дубликаты
+df.drop_duplicates(inplace=True)
+
+# Посчитываем количество строк после удаления дубликатов
+final_row_count = len(df)
+
+# Рассчитываем количество удаленных дубликатов
+removed_rows = initial_row_count - final_row_count
+
+print(f"Удалено {removed_rows} дубликатов.")
+
+# Группировка по должностям и подсчет средней зарплаты
+average_salary_by_job = df.groupby('job_title')['salary'].mean().reset_index()
+
+# Сортировка по средней зарплате в порядке убывания
+sorted_average_salary = average_salary_by_job.sort_values(by='salary', ascending=False)
+
+# Вывод топ-5 самых высокооплачиваемых должностей
+top_5_jobs = sorted_average_salary.head()
+
+# Создание столбчатой диаграммы для топ-5 должностей
+plt.figure(figsize=(10, 6))
+sns.barplot(x='salary', y='job_title', data=top_5_jobs, palette='viridis')
+
+plt.title('Топ-5 самых высокооплачиваемых должностей')
+plt.xlabel('Средняя зарплата')
+plt.ylabel('Должность')
+
+plt.xticks(rotation=45)  # Поворот меток оси X для лучшей читаемости
+plt.tight_layout()  # Добавление дополнительного пространства вокруг графика
+
+plt.show()
+
+# Шаг 1: Вычисление IQR и определение границ выбросов
+Q1 = df['salary'].quantile(0.25)
+Q3 = df['salary'].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+# Фильтрация выбросов
+outliers = df[(df['salary'] < lower_bound) | (df['salary'] > upper_bound)]
+
+# Шаг 2: Создание графика
+plt.figure(figsize=(10, 6))
+sns.boxplot(x='job_title', y='salary', data=df, color="skyblue")
+sns.scatterplot(x=outliers.index, y=outliers['salary'], data=outliers, color="red")
+
+plt.title('Выбросы в заработной плате по должностям')
+plt.xlabel('Должность')
+plt.ylabel('Заработная плата')
+
+plt.show()
+
+# Шаг 3: Показатель должностей с выбросами
+print(outliers[['job_title', 'salary']])
+
+# Определение границ выбросов для зарплат
+Q1 = df['salary_in_usd'].quantile(0.25)
+Q3 = df['salary_in_usd'].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+# Создание гистограммы для каждого типа занятости, с выделением выбросов
+plt.figure(figsize=(12, 6))
+
+for employment_type in df['employment_type'].unique():
+    subset = df[df['employment_type'] == employment_type]
+
+    # Построение гистограммы для текущего типа занятости
+    sns.histplot(subset['salary_in_usd'], label=employment_type, alpha=0.5, bins=20)
+
+    # Выделение выбросов
+    outliers = subset[(subset['salary_in_usd'] < lower_bound) | (subset['salary_in_usd'] > upper_bound)]
+    sns.scatterplot(x=outliers['salary_in_usd'], y=[0]*len(outliers), color='red', marker='x', s=50, label=f'{employment_type} Outliers')
+
+plt.title('Распределение зарплат по типам занятости с выделением выбросов')
+plt.xlabel('Зарплата в USD')
+plt.ylabel('Количество')
+plt.legend()
+plt.show()
+
+from scipy.stats import chi2_contingency
+
+# Создаем таблицу сопряженности для chi-square test
+contingency_table = pd.crosstab(index=df['employment_type'], columns=pd.cut(df['salary_in_usd'], bins=5))
+
+chi2, p, dof, expected = chi2_contingency(contingency_table)
+
+print(f"Chi-square statistic: {chi2}, p-value: {p}")
+if p < 0.05:
+    print("Убедительные доказательства.")
+else:
+    print("Слабые доказательства.")
+
+# Группировка по размеру компании и подсчет средней зарплаты
+average_salary_by_company_size = df.groupby('company_size')['salary_in_usd'].mean().reset_index()
+
+# Сортировка по средней зарплате в порядке убывания
+sorted_average_salary = average_salary_by_company_size.sort_values(by='salary_in_usd', ascending=False)
+
+# Вывод средних зарплат
+print(sorted_average_salary)
+
+# Визуализация средних зарплат по размеру компании
+plt.figure(figsize=(10, 6))
+sns.barplot(x='company_size', y='salary_in_usd', data=average_salary_by_company_size, ci=None)
+plt.title('Средняя зарплата по размеру компании')
+plt.xlabel('Размер компании')
+plt.ylabel('Средняя зарплата в USD')
+plt.xticks(rotation=45)
+plt.show()
