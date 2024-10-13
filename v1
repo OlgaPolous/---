@@ -1,0 +1,43 @@
+import warnings
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+# Установка настроек отображения и игнорирование предупреждений
+pd.options.display.max_columns = None
+warnings.filterwarnings('ignore')
+# Установка стиля графиков
+sns.set_style("whitegrid")
+# Чтение файла из локальной системы
+file_path = 'ds_salaries.csv'
+df = pd.read_csv(file_path)
+
+df.info() #df.info() предоставляет общую информацию о DataFrame, включая количество строк и столбцов, типы данных и отсутствующие значения.
+
+df.head(10) #df.head(10) выводит первые 10 строк DataFrame.
+df.describe() #df.describe() дает статистические описания числовых столбцов (среднее, стандартное отклонение, минимальное и максимальное значение).
+df.describe(include = "object") #df.describe(include="object") аналогично, но только для объектных столбцов (текстовые данные).
+df[df.work_year >= 2020] #df[df.work_year >= 2020] фильтрует строки, где год работы (work_year) больше или равен 2020 году
+
+# Проверяем есть ли пропуски в строках.
+missing_count = df.isnull().sum()
+print(missing_count)
+import numpy as np
+# Проверка всех столбцов на наличие действительных чисел
+errors_in_columns = df.applymap(np.isreal).all(axis=0)
+print(errors_in_columns)
+# Получение списка столбцов с пропущенными значениями
+columns_with_missing_values = df.columns[df.isnull().any()].tolist()
+print(columns_with_missing_values)
+# Сохраняем количество строк в исходном DataFrame
+initial_row_count = len(df)
+
+# Удаляем дубликаты
+df.drop_duplicates(inplace=True)
+
+# Посчитываем количество строк после удаления дубликатов
+final_row_count = len(df)
+
+# Рассчитываем количество удаленных дубликатов
+removed_rows = initial_row_count - final_row_count
+
+print(f"Удалено {removed_rows} дубликатов.")
